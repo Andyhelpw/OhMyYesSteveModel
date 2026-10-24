@@ -259,17 +259,12 @@ jobs:
           YSM_NATIVE_PATH: ${{ github.workspace }}/native/libysm.so
         run: ./gradlew --stacktrace shadowJar verifyMockHostPackaging
 
-      # 注解处理器测试为纯 Java，不依赖 native。
-      - name: Run annotation processor tests
-        env:
-          YSM_NATIVE_PATH: ${{ github.workspace }}/native/libysm.so
-        run: ./gradlew --stacktrace processorTest
-
       - name: Summarize artifact
         run: |
           ls -lh build/libs
           sha256sum build/libs/*.jar | tee build/libs/SHA256SUMS.txt
 
+      # 先把产物上传，测试失败时仍可取到用于排查的 JAR。
       - name: Upload JAR
         uses: actions/upload-artifact@v7
         with:
@@ -279,3 +274,9 @@ jobs:
             build/libs/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+      # native 集成测试同样依赖 YSM_NATIVE_PATH，这里一并执行。
+      - name: Run tests
+        env:
+          YSM_NATIVE_PATH: ${{ github.workspace }}/native/libysm.so
+        run: ./gradlew --stacktrace test processorTest

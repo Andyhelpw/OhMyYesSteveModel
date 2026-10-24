@@ -271,6 +271,8 @@ dependencies {
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // Gradle 9 不再隐式注入 JUnit Platform launcher，测试运行时必须显式声明。
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'com.google.protobuf:protobuf-java:3.21.12'
     testImplementation files(relocateProcessorAsmTask.flatMap { it.archiveFile })
     testImplementation 'com.google.code.gson:gson:2.10.1'
@@ -320,6 +322,7 @@ dependencies {
     processorTestImplementation files(relocateProcessorAsmTask.flatMap { it.archiveFile })
     processorTestImplementation platform('org.junit:junit-bom:5.11.4')
     processorTestImplementation 'org.junit.jupiter:junit-jupiter'
+    processorTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     processorTestImplementation 'com.google.code.gson:gson:2.10.1'
 
     /*
