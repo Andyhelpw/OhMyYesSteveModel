@@ -1,0 +1,71 @@
+name: CI (1.12.2)
+
+# 仅服务 1.12.2 迁移分支（dev/1.12），dev/1.20 与其它分支不触发。
+on:
+  push:
+    branches:
+      - dev/1.12
+      - ci/1.12-build
+  pull_request:
+    branches:
+      - dev/1.12
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-1.12.2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build 1.12.2 JAR
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # 工程使用 Java 25 toolchain（Cleanroom 0.6.x + LWJGL 3 基线），
+      # 不额外安装 JDK 8/17：Gradle 以当前 JDK 25 作为 toolchain。
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # shadowJar 依赖 reobfJar：完成编译、注解处理、reobf 与 shade，
+      # 输出 build/libs/ysm-<version>.jar，与本地发布产物路径一致。
+      - name: Build shaded JAR
+        run: ./gradlew --stacktrace shadowJar
+
+      # 校验 mock/验证专用类没有泄漏进发布产物，不需要 native 库。
+      - name: Verify packaging
+        run: ./gradlew --stacktrace verifyMockHostPackaging
+
+      # 注解处理器测试为纯 Java，可在无 native 库的 runner 上运行。
+      # native 集成测试（natives.*）需要本地构建的 libysm.so，不在本工作流内执行。
+      - name: Run annotation processor tests
+        run: ./gradlew --stacktrace processorTest
+
+      - name: Summarize artifact
+        run: |
+          ls -lh build/libs
+          sha256sum build/libs/*.jar | tee build/libs/SHA256SUMS.txt
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: ysm-1.12.2-${{ github.sha }}
+          path: |
+            build/libs/*.jar
+            build/libs/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
